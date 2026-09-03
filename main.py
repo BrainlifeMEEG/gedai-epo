@@ -56,7 +56,7 @@ n_jobs : int
 Outputs
 -------
 out_dir/epo.fif : denoised epochs (datatype neuro/mne).
-out_dir/noise_epo.fif : the removed signal, EEG only (datatype neuro/mne).
+out_noise/epo.fif : the removed signal, EEG only (datatype neuro/mne).
 out_report/report.html : QC report.
 out_figs/*.png : QC figures.
 product.json : brainlife metadata.
@@ -93,7 +93,7 @@ from brainlife_utils import (
 mne.set_log_level('WARNING')
 setup_matplotlib_backend()
 
-ensure_output_dirs('out_dir', 'out_figs', 'out_report')
+ensure_output_dirs('out_dir', 'out_noise', 'out_figs', 'out_report')
 config = load_config()
 require_config_keys(config, ['epo'])
 product_items = []
@@ -514,7 +514,7 @@ print(f"Wrote and verified {out_epo}")
 # ======================================================================
 noise_epo = epo_eeg_in.copy()
 noise_epo._data = noise_3d
-out_noise = os.path.join('out_dir', 'noise_epo.fif')
+out_noise = os.path.join('out_noise', 'epo.fif')
 noise_epo.save(out_noise, overwrite=True)
 _ = mne.read_epochs(out_noise, preload=False)
 print(f"Wrote and verified {out_noise}")

@@ -29,7 +29,7 @@ on Leadfield Filtering.* bioRxiv 2025. doi:10.1101/2025.10.04.680449
 
 ## Inputs
 
-- **epo** (`neuro/mne`, `epo`): an MNE epochs `.fif` file. Must contain EEG
+- **epo** (`neuro/meeg/mne/epochs`): an MNE epochs `.fif` file. Must contain EEG
   channels.
 
 For best results the EEG channels should carry **standard 10-05 names**
@@ -38,8 +38,8 @@ be **high-pass filtered**.
 
 ## Outputs
 
-- **out_dir/epo.fif** (`neuro/mne`, `epo`): the denoised epochs.
-- **out_dir/noise_epo.fif** (`neuro/mne`, `epo`): the *removed* signal (EEG
+- **out_dir/epo.fif** (`neuro/meeg/mne/epochs`): the denoised epochs.
+- **out_noise/epo.fif** (`neuro/meeg/mne/epochs`): the *removed* signal (EEG
   channels only) -- `input EEG = denoised EEG + noise`.
 - **out_report/report.html**: QC report (SENSAI fit, evoked GFP before/after,
   PSD before/after, ENOVA topomap).
