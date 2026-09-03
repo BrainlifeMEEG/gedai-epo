@@ -1,0 +1,27 @@
+#!/bin/bash
+
+#SBATCH --job-name=gedai-epo
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=24G
+#SBATCH --time=02:00:00
+#PBS -l nodes=1:ppn=8
+#PBS -l walltime=02:00:00
+
+# Copyright (c) 2026 brainlife.io
+#
+# This is the main file run by the brainlife.io orchestration system.
+#
+# Author: Maximilien Chaumon
+
+set -e
+set -x
+
+# GEDAI (https://github.com/neurotuning/gedai) is not part of the shared
+# brainlifemeeg/mne image, so install it into ~/.local at run time. mne (>=1.9),
+# numpy, scikit-learn and matplotlib are already in the image and are left
+# untouched -- only gedai and its small pure-Python deps are added.
+# -u: unbuffered stdout so print() lands in the job log immediately (the web UI
+# shows the last stdout line as the live task status).
+singularity exec docker://brainlifemeeg/mne:1.12.1 bash -c \
+  "pip install --user --no-cache-dir --quiet 'gedai==0.4.2' && python3 -u main.py"

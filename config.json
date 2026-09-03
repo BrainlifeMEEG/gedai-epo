@@ -1,0 +1,15 @@
+{
+    "epo": "/network/iss/cenir/analyse/meeg/BRAINLIFE/datasets/dummy-epo.fif",
+    "mode": "multiband",
+    "l_freq": "",
+    "noise_multiplier": 3.0,
+    "sensai_method": "optimize",
+    "broadband_pass": true,
+    "wavelet_low_cutoff": "auto",
+    "add_reference_channel": "",
+    "montage": "",
+    "montage_handling": "auto",
+    "interpolate_bads": false,
+    "output": "recombine",
+    "n_jobs": 8
+}
