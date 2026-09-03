@@ -299,41 +299,65 @@ elif epo_eeg.info.get('custom_ref_applied') and not add_reference_channel:
 # MONTAGE / LEADFIELD-NAME RECONCILIATION -> reference_cov
 # ======================================================================
 if montage_name:
-    epo_eeg.set_montage(montage_name, match_case=False, on_missing='warn')
+    epo_eeg.set_montage(montage_name, match_case=False, on_missing='ignore')
     add_info_to_product(product_items, f"Attached montage '{montage_name}'.")
 
-lead_cov = mne.read_cov(str(get_leadfield_cov_path()))
-lead_names = {n.lower() for n in lead_cov.ch_names}
+lead_names = {n.lower() for n in mne.read_cov(str(get_leadfield_cov_path())).ch_names}
+
 matched = [c for c in epo_eeg.ch_names if c.lower() in lead_names]
+pos_ok = [ch['ch_name'] for ch in epo_eeg.info['chs']
+          if np.isfinite(ch['loc'][:3]).all()
+          and not np.allclose(ch['loc'][:3], 0.0)]
+unusable = [c for c in epo_eeg.ch_names
+            if c.lower() not in lead_names and c not in pos_ok]
+
+if unusable and montage_handling in (
+        'auto', 'leadfield', 'channel_positions', 'drop_unmatched'):
+    epo_eeg.pick([c for c in epo_eeg.ch_names if c not in unusable])
+    add_info_to_product(
+        product_items,
+        f"Dropped {len(unusable)} EEG channel(s) with neither a standard 10-05 "
+        f"name nor a position: {unusable[:8]}{'...' if len(unusable) > 8 else ''}. "
+        f"They are NOT denoised in the output.",
+        'warning')
+    matched = [c for c in epo_eeg.ch_names if c.lower() in lead_names]
+    pos_ok = [ch['ch_name'] for ch in epo_eeg.info['chs']
+              if np.isfinite(ch['loc'][:3]).all()
+              and not np.allclose(ch['loc'][:3], 0.0)]
+
+n_ch = len(epo_eeg.ch_names)
 unmatched = [c for c in epo_eeg.ch_names if c.lower() not in lead_names]
-
-_pos_picks = mne.pick_types(epo_eeg.info, eeg=True, exclude=[])
-_pos_locs = np.array([epo_eeg.info['chs'][p]['loc'][:3] for p in _pos_picks]) \
-    if len(_pos_picks) else np.zeros((0, 3))
-has_positions = (len(_pos_locs) > 0 and np.isfinite(_pos_locs).all()
-                 and not np.allclose(_pos_locs, 0.0))
-
 reference_cov = 'leadfield'
+
 if not unmatched:
     add_info_to_product(
         product_items,
-        f"All {len(matched)} EEG channels matched the bundled 10-05 leadfield.")
-elif montage_handling in ('auto', 'channel_positions') and has_positions:
+        f"All {n_ch} EEG channels matched the bundled 10-05 leadfield.")
+elif montage_handling in ('auto', 'channel_positions') and len(pos_ok) == n_ch:
     reference_cov = compute_covariance_from_channel_positions(epo_eeg.info)
     add_info_to_product(
         product_items,
         f"{len(unmatched)} channel(s) not in the 10-05 leadfield "
-        f"({unmatched[:8]}{'...' if len(unmatched) > 8 else ''}); "
-        f"using a channel-position reference covariance instead.",
+        f"({unmatched[:6]}{'...' if len(unmatched) > 6 else ''}); "
+        f"using a channel-position reference covariance over all {n_ch} channels.",
         'warning')
 elif montage_handling in ('auto', 'leadfield', 'drop_unmatched') and matched:
     epo_eeg.pick(matched)
     add_info_to_product(
         product_items,
-        f"Dropped {len(unmatched)} EEG channel(s) absent from the 10-05 "
-        f"leadfield and with no usable positions: "
-        f"{unmatched[:8]}{'...' if len(unmatched) > 8 else ''}. "
-        f"These channels are NOT denoised in the output.",
+        f"Kept the {len(matched)} EEG channel(s) matching the 10-05 leadfield; "
+        f"dropped {len(unmatched)} unmatched "
+        f"({unmatched[:6]}{'...' if len(unmatched) > 6 else ''}). "
+        f"Dropped channels are NOT denoised in the output.",
+        'warning')
+elif montage_handling in ('auto', 'channel_positions') and pos_ok:
+    epo_eeg.pick(pos_ok)
+    reference_cov = compute_covariance_from_channel_positions(epo_eeg.info)
+    add_info_to_product(
+        product_items,
+        f"Using a channel-position reference covariance over the "
+        f"{len(pos_ok)} positioned channel(s); dropped {n_ch - len(pos_ok)} "
+        f"without a position.",
         'warning')
 else:
     add_info_to_product(
