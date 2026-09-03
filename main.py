@@ -55,8 +55,8 @@ n_jobs : int
 
 Outputs
 -------
-out_dir/epo.fif : denoised epochs (datatype neuro/mne).
-out_noise/epo.fif : the removed signal, EEG only (datatype neuro/mne).
+out_dir/meg-epo.fif : denoised epochs (datatype neuro/mne).
+out_noise/meg-epo.fif : the removed signal, EEG only (datatype neuro/mne).
 out_report/report.html : QC report.
 out_figs/*.png : QC figures.
 product.json : brainlife metadata.
@@ -504,7 +504,7 @@ else:
     if montage_name:
         epo_out.set_montage(montage_name, match_case=False, on_missing='ignore')
 
-out_epo = os.path.join('out_dir', 'epo.fif')
+out_epo = os.path.join('out_dir', 'meg-epo.fif')
 epo_out.save(out_epo, overwrite=True)
 _ = mne.read_epochs(out_epo, preload=False)
 print(f"Wrote and verified {out_epo}")
@@ -514,7 +514,7 @@ print(f"Wrote and verified {out_epo}")
 # ======================================================================
 noise_epo = epo_eeg_in.copy()
 noise_epo._data = noise_3d
-out_noise = os.path.join('out_noise', 'epo.fif')
+out_noise = os.path.join('out_noise', 'meg-epo.fif')
 noise_epo.save(out_noise, overwrite=True)
 _ = mne.read_epochs(out_noise, preload=False)
 print(f"Wrote and verified {out_noise}")

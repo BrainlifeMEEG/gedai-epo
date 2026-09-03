@@ -38,8 +38,8 @@ be **high-pass filtered**.
 
 ## Outputs
 
-- **out_dir/epo.fif** (`neuro/meeg/mne/epochs`): the denoised epochs.
-- **out_noise/epo.fif** (`neuro/meeg/mne/epochs`): the *removed* signal (EEG
+- **out_dir/meg-epo.fif** (`neuro/meeg/mne/epochs`): the denoised epochs.
+- **out_noise/meg-epo.fif** (`neuro/meeg/mne/epochs`): the *removed* signal (EEG
   channels only) -- `input EEG = denoised EEG + noise`.
 - **out_report/report.html**: QC report (SENSAI fit, evoked GFP before/after,
   PSD before/after, ENOVA topomap).
