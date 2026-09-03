@@ -52,7 +52,7 @@ be **high-pass filtered**.
 
 | key | type | default | description |
 |---|---|---|---|
-| `mode` | `broadband` \| `multiband` | `multiband` | GEDAI variant. `broadband` = single pass (no SENSAI subspace metrics); `multiband` = per wavelet band. `adaptive` is **not** available for epochs -- use the `gedai` app. |
+| `mode` | `broadband` \| `multiband` | `broadband` | GEDAI variant. `broadband` = single pass (robust for any epoch length). `multiband` = per wavelet band, and needs epochs long enough for several wavelet levels (roughly a few seconds; short epochs will fail with a clear message). `adaptive` is **not** available for epochs -- use the `gedai` app. |
 | `l_freq` | float \| null | `null` | High-pass (Hz) applied before fitting. `null` = skip (a warning is issued if the epochs look unfiltered). |
 | `noise_multiplier` | float \| str | `3.0` | SENSAI noise weighting. Higher = keep more brain signal. A number > 0, or `standard` (3.0) / `aggressive` (1.5) / `conservative` (6.0). |
 | `sensai_method` | `optimize` \| `gridsearch` | `optimize` | Threshold search strategy. |

@@ -1,6 +1,6 @@
 {
     "epo": "/network/iss/cenir/analyse/meeg/BRAINLIFE/datasets/dummy-epo.fif",
-    "mode": "multiband",
+    "mode": "broadband",
     "l_freq": "",
     "noise_multiplier": 3.0,
     "sensai_method": "optimize",

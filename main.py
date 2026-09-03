@@ -112,7 +112,7 @@ NOISE_PRESETS = (
 
 errors = []
 
-mode = str(config.get('mode') or 'multiband').lower()
+mode = str(config.get('mode') or 'broadband').lower()
 if mode == 'adaptive':
     errors.append(
         "mode 'adaptive' (AdaptiveMultibandGedai) cannot operate on epochs; "
@@ -183,8 +183,22 @@ else:
     except (TypeError, ValueError):
         errors.append(f"wavelet_low_cutoff must be a number, 'auto' or null, got '{config.get('wavelet_low_cutoff')}'")
 
-broadband_pass = bool(config.get('broadband_pass', True))
-interpolate_bads = bool(config.get('interpolate_bads', False))
+# booleans: accept real JSON bools and common string spellings
+BOOL_MAP = {True: True, False: False, None: None,
+            'true': True, '1': True, 'yes': True, 'on': True,
+            'false': False, '0': False, 'no': False, 'off': False, 'none': False}
+bools = {}
+for _key, _default in (('broadband_pass', True), ('interpolate_bads', False)):
+    _raw = config.get(_key)
+    _norm = BOOL_MAP.get(_raw if isinstance(_raw, bool) or _raw is None
+                         else str(_raw).strip().lower(), 'INVALID')
+    if _norm == 'INVALID':
+        errors.append(f"{_key} must be a boolean, got '{_raw}'")
+        bools[_key] = _default
+    else:
+        bools[_key] = _default if _norm is None else _norm
+broadband_pass = bools['broadband_pass']
+interpolate_bads = bools['interpolate_bads']
 
 add_reference_channel = config.get('add_reference_channel') or None
 if add_reference_channel is not None:
@@ -228,7 +242,22 @@ add_info_to_product(product_items, f"gedai version {gedai.__version__}")
 # ======================================================================
 # LOAD DATA, SPLIT CHANNELS
 # ======================================================================
-epochs = mne.read_epochs(config['epo'], preload=True)
+try:
+    epochs = mne.read_epochs(config['epo'], preload=True)
+except Exception as e:
+    add_info_to_product(
+        product_items, f"Could not read input file '{config['epo']}': {e}", 'error')
+    create_product_json(product_items)
+    sys.exit(1)
+
+# GEDAI's wavelet stage (multiband) needs an even number of samples per epoch.
+if mode == 'multiband' and epochs.times.size % 2 == 1:
+    epochs.crop(tmin=epochs.times[0], tmax=epochs.times[-2])
+    add_info_to_product(
+        product_items,
+        f"Dropped the last sample so each epoch has an even length "
+        f"({epochs.times.size} samples), required by the multiband wavelet stage.",
+        'warning')
 
 eeg_picks = mne.pick_types(epochs.info, eeg=True, meg=False, eog=False, ecg=False,
                            stim=False, misc=False, exclude=[])
@@ -363,7 +392,13 @@ try:
                          wavelet_low_cutoff=wavelet_low_cutoff, **common)
     denoised_eeg = model.transform_epochs(epo_eeg, n_jobs=n_jobs, verbose=False)
 except Exception as e:
-    add_info_to_product(product_items, f"GEDAI fit/transform failed: {e}", 'error')
+    msg = f"GEDAI fit/transform failed: {e}"
+    if mode == 'multiband' and (
+            'even' in str(e).lower() or 'level' in str(e).lower()):
+        msg += (". The multiband wavelet decomposition needs epochs long enough "
+                "for several decomposition levels; try mode 'broadband', longer "
+                "epochs, or a higher sampling rate.")
+    add_info_to_product(product_items, msg, 'error')
     create_product_json(product_items)
     sys.exit(1)
 
