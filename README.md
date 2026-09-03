@@ -59,8 +59,8 @@ be **high-pass filtered**.
 | `broadband_pass` | bool | `true` | `multiband`: initial broadband pre-pass. |
 | `wavelet_low_cutoff` | `auto` \| float \| null | `auto` | `multiband`: wavelet bands below this (Hz) are zeroed. `auto` uses the data high-pass. |
 | `add_reference_channel` | str \| null | `null` | Add this flat reference channel before fitting (preserves rank for non-average references). Kept in the output. |
-| `montage` | str \| null | `null` | MNE built-in montage to attach before fitting (e.g. `standard_1005`). |
-| `montage_handling` | `auto` \| `leadfield` \| `channel_positions` \| `drop_unmatched` | `auto` | How to get the reference covariance when some channel names are not in the 10-05 leadfield. `auto`: leadfield → channel-position covariance → drop unmatched. |
+| `montage` | str \| null | `null` | MNE built-in montage to attach before fitting (e.g. `standard_1005`, `GSN-HydroCel-257`). |
+| `montage_handling` | `auto` \| `leadfield` \| `forward` \| `channel_positions` \| `drop_unmatched` | `auto` | How GEDAI's reference covariance is built. `auto`: standard 10-05 names → bundled leadfield; else if every channel is positioned → an **fsaverage template forward solution** (+~35 s); else the 10-05-matched subset (leadfield) or positioned subset (forward). `forward` forces the fsaverage forward. `channel_positions` uses a fast distance covariance (**lower fidelity, tends to over-clean**). `leadfield` / `drop_unmatched` keep only 10-05-matched channels. |
 | `interpolate_bads` | bool | `false` | Interpolate bad channels before fitting. |
 | `output` | `recombine` \| `eeg_only` | `recombine` | `recombine`: full input copy with EEG replaced by the denoised signal. `eeg_only`: only the denoised EEG channels. |
 | `n_jobs` | int | `8` | Parallel jobs. |
@@ -78,6 +78,7 @@ be **high-pass filtered**.
 ```bash
 # edit config.json to point "epo" at a real epochs .fif, then:
 pip install 'gedai==0.4.2'
+# non-standard montages also need fsaverage: python -c "import mne; mne.datasets.fetch_fsaverage()"
 python main.py
 ```
 

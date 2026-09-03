@@ -17,11 +17,13 @@
 set -e
 set -x
 
-# GEDAI (https://github.com/neurotuning/gedai) is not part of the shared
-# brainlifemeeg/mne image, so install it into ~/.local at run time. mne (>=1.9),
-# numpy, scikit-learn and matplotlib are already in the image and are left
-# untouched -- only gedai and its small pure-Python deps are added.
+# GEDAI (https://github.com/neurotuning/gedai) is not part of the shared image,
+# so install it into ~/.local at run time (small, pure-Python; mne >= 1.9,
+# numpy, scikit-learn, matplotlib are already present and left untouched).
+# The image is brainlifemeeg/mne-fsaverage: brainlifemeeg/mne plus the baked-in
+# fsaverage template head model, which GEDAI needs to build a reference forward
+# solution when the EEG montage is not standard 10-05.
 # -u: unbuffered stdout so print() lands in the job log immediately (the web UI
 # shows the last stdout line as the live task status).
-singularity exec docker://brainlifemeeg/mne:1.12.1 bash -c \
+singularity exec docker://brainlifemeeg/mne-fsaverage:1.12.1 bash -c \
   "pip install --user --no-cache-dir --quiet 'gedai==0.4.2' && python3 -u main.py"

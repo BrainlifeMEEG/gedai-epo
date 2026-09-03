@@ -103,7 +103,8 @@ product_items = []
 # ======================================================================
 MODES = ('broadband', 'multiband')
 SENSAI_METHODS = ('optimize', 'gridsearch')
-MONTAGE_HANDLING = ('auto', 'leadfield', 'channel_positions', 'drop_unmatched')
+MONTAGE_HANDLING = ('auto', 'leadfield', 'forward', 'channel_positions',
+                    'drop_unmatched')
 OUTPUT_MODES = ('recombine', 'eeg_only')
 NOISE_PRESETS = (
     'auto', 'default', 'standard', 'auto+', 'aggressive', 'more',
@@ -230,6 +231,7 @@ try:
     from gedai.metrics import compute_enova_per_channel
     from gedai.covariance.covariance import (
         compute_covariance_from_channel_positions,
+        compute_covariance_from_forward,
         get_leadfield_cov_path,
     )
 except Exception as e:  # pragma: no cover - environment problem
@@ -312,7 +314,7 @@ unusable = [c for c in epo_eeg.ch_names
             if c.lower() not in lead_names and c not in pos_ok]
 
 if unusable and montage_handling in (
-        'auto', 'leadfield', 'channel_positions', 'drop_unmatched'):
+        'auto', 'leadfield', 'forward', 'channel_positions', 'drop_unmatched'):
     epo_eeg.pick([c for c in epo_eeg.ch_names if c not in unusable])
     add_info_to_product(
         product_items,
@@ -327,48 +329,82 @@ if unusable and montage_handling in (
 
 n_ch = len(epo_eeg.ch_names)
 unmatched = [c for c in epo_eeg.ch_names if c.lower() not in lead_names]
-reference_cov = 'leadfield'
 
+# Decide the reference: ref_kind in {'leadfield','forward','positions'} and the
+# set of channels it applies to. 'auto': all names match -> bundled leadfield;
+# else all channels positioned -> fsaverage template forward solution; else fall
+# back to the matched subset (leadfield) or the positioned subset (forward).
+ref_kind, keep = None, list(epo_eeg.ch_names)
 if not unmatched:
+    ref_kind = 'leadfield'
+elif montage_handling == 'channel_positions' and pos_ok:
+    ref_kind, keep = 'positions', pos_ok
+elif montage_handling in ('leadfield', 'drop_unmatched') and matched:
+    ref_kind, keep = 'leadfield', matched
+elif montage_handling == 'forward' and pos_ok:
+    ref_kind, keep = 'forward', pos_ok
+elif montage_handling == 'auto':
+    if len(pos_ok) == n_ch:
+        ref_kind, keep = 'forward', pos_ok
+    elif matched:
+        ref_kind, keep = 'leadfield', matched
+    elif pos_ok:
+        ref_kind, keep = 'forward', pos_ok
+
+if ref_kind is None:
     add_info_to_product(
         product_items,
-        f"All {n_ch} EEG channels matched the bundled 10-05 leadfield.")
-elif montage_handling in ('auto', 'channel_positions') and len(pos_ok) == n_ch:
-    reference_cov = compute_covariance_from_channel_positions(epo_eeg.info)
-    add_info_to_product(
-        product_items,
-        f"{len(unmatched)} channel(s) not in the 10-05 leadfield "
-        f"({unmatched[:6]}{'...' if len(unmatched) > 6 else ''}); "
-        f"using a channel-position reference covariance over all {n_ch} channels.",
-        'warning')
-elif montage_handling in ('auto', 'leadfield', 'drop_unmatched') and matched:
-    epo_eeg.pick(matched)
-    add_info_to_product(
-        product_items,
-        f"Kept the {len(matched)} EEG channel(s) matching the 10-05 leadfield; "
-        f"dropped {len(unmatched)} unmatched "
-        f"({unmatched[:6]}{'...' if len(unmatched) > 6 else ''}). "
-        f"Dropped channels are NOT denoised in the output.",
-        'warning')
-elif montage_handling in ('auto', 'channel_positions') and pos_ok:
-    epo_eeg.pick(pos_ok)
-    reference_cov = compute_covariance_from_channel_positions(epo_eeg.info)
-    add_info_to_product(
-        product_items,
-        f"Using a channel-position reference covariance over the "
-        f"{len(pos_ok)} positioned channel(s); dropped {n_ch - len(pos_ok)} "
-        f"without a position.",
-        'warning')
-else:
-    add_info_to_product(
-        product_items,
-        "Cannot build a GEDAI reference covariance: channel names are not "
-        "standard 10-05 labels and the file carries no channel positions. "
-        "Set 'montage' to an MNE built-in montage, or provide data with "
-        "standard channel names.",
+        "Cannot build a GEDAI reference covariance: EEG channel names are not "
+        "standard 10-05 labels and the file carries no usable channel positions. "
+        "Set 'montage' to an MNE built-in montage that fits this cap.",
         'error')
     create_product_json(product_items)
     sys.exit(1)
+
+if keep != list(epo_eeg.ch_names):
+    dropped = [c for c in epo_eeg.ch_names if c not in keep]
+    epo_eeg.pick(keep)
+    add_info_to_product(
+        product_items,
+        f"Using {len(keep)} of {n_ch} EEG channels for GEDAI; dropped "
+        f"{len(dropped)} ({dropped[:6]}{'...' if len(dropped) > 6 else ''}). "
+        f"Dropped channels are NOT denoised in the output.",
+        'warning')
+
+reference_cov = 'leadfield'
+if ref_kind == 'leadfield':
+    add_info_to_product(
+        product_items,
+        f"Reference: bundled 10-05 leadfield ({len(epo_eeg.ch_names)} channels).")
+elif ref_kind == 'positions':
+    reference_cov = compute_covariance_from_channel_positions(epo_eeg.info)
+    add_info_to_product(
+        product_items,
+        f"Reference: channel-position covariance over {len(epo_eeg.ch_names)} "
+        f"channels (fast, lower fidelity than a forward model).", 'warning')
+else:  # forward
+    try:
+        fs_dir = str(mne.datasets.fetch_fsaverage(
+            subjects_dir=os.environ.get('SUBJECTS_DIR') or None, verbose=False))
+        fwd = mne.make_forward_solution(
+            epo_eeg.info, trans='fsaverage',
+            src=os.path.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif'),
+            bem=os.path.join(fs_dir, 'bem',
+                             'fsaverage-5120-5120-5120-bem-sol.fif'),
+            eeg=True, meg=False, mindist=5.0, n_jobs=n_jobs, verbose=False)
+        reference_cov = compute_covariance_from_forward(fwd)
+        add_info_to_product(
+            product_items,
+            f"Reference: fsaverage template forward solution "
+            f"({len(epo_eeg.ch_names)} channels); "
+            f"{len(unmatched)} channel name(s) not in the 10-05 leadfield.")
+    except Exception as e:
+        add_info_to_product(
+            product_items,
+            f"Could not build the fsaverage forward solution: {e}. Try "
+            f"montage_handling='leadfield' or 'channel_positions'.", 'error')
+        create_product_json(product_items)
+        sys.exit(1)
 
 # ======================================================================
 # OPTIONAL PRE-FILTER / BAD-CHANNEL HANDLING
@@ -396,6 +432,11 @@ if epo_eeg.info['bads']:
 # ======================================================================
 # FIT + TRANSFORM
 # ======================================================================
+# GEDAI average-references internally; do it here too so epo_eeg_in (used for the
+# noise output and every QC figure) is on the same reference as the denoised
+# data -- otherwise the re-referencing shows up as a huge common-mode "artifact".
+epo_eeg.set_eeg_reference('average', projection=False, ch_type='eeg',
+                          verbose=False)
 epo_eeg_in = epo_eeg.copy()  # exact GEDAI input, for QC and the noise output
 
 common = dict(
