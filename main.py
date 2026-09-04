@@ -384,8 +384,16 @@ elif ref_kind == 'positions':
         f"channels (fast, lower fidelity than a forward model).", 'warning')
 else:  # forward
     try:
-        fs_dir = str(mne.datasets.fetch_fsaverage(
-            subjects_dir=os.environ.get('SUBJECTS_DIR') or None, verbose=False))
+        # prefer an fsaverage already on disk (baked into the
+        # brainlifemeeg/mne-fsaverage image) -- fetch_fsaverage() would try to
+        # write to it and fail on a read-only container filesystem.
+        _sub = os.environ.get('SUBJECTS_DIR') or ''
+        _baked = os.path.join(_sub, 'fsaverage') if _sub else ''
+        if _baked and os.path.exists(os.path.join(
+                _baked, 'bem', 'fsaverage-5120-5120-5120-bem-sol.fif')):
+            fs_dir = _baked
+        else:
+            fs_dir = str(mne.datasets.fetch_fsaverage(verbose=False))
         fwd = mne.make_forward_solution(
             epo_eeg.info, trans='fsaverage',
             src=os.path.join(fs_dir, 'bem', 'fsaverage-ico-5-src.fif'),
