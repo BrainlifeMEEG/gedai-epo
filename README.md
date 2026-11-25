@@ -1,5 +1,59 @@
 # GEDAI -- unsupervised EEG denoising (epoched data)
 
+<!-- brainlife-app:begin (generated from the App manifest; edit the manifest, not this block) -->
+
+> **Denoises the EEG channels of epoched data with GEDAI 0.4.2, an unsupervised leadfield-filtering method with automatic SENSAI thresholds, and outputs denoised epochs, the removed noise and a QC report.**
+
+Contrasts each epoch's covariance with a template leadfield reference covariance and projects out non-brain components chosen by the SENSAI criterion; non-EEG channels pass through unchanged and the output is average-referenced. Use it for automated artifact removal in epoched EEG without manual ICA review. EEG channels should have standard 10-05 names or digitized positions and be high-pass filtered. GEDAI is licensed for non-commercial use only.
+
+| | |
+|---|---|
+| 📥 **Inputs** | `neuro/meeg/mne/epochs` |
+| 📤 **Outputs** | `neuro/meeg/mne/epochs` ×2 |
+| 🐳 **Container** | `brainlifemeeg/mne-fsaverage:1.12.1` |
+| ⚙️ **Resources** | 8 CPUs · 24 GB memory · 2 h walltime |
+| 🔗 **Run it** | [doi.org/10.25663/brainlife.app.960](https://doi.org/10.25663/brainlife.app.960) |
+
+#### 📥 Inputs
+
+| Input | Datatype | Required | Description |
+|---|---|---|---|
+| `epo` | `neuro/meeg/mne/epochs` | yes | MNE epochs .fif with EEG channels |
+
+#### 📤 Outputs
+
+| Output | Datatype | Description |
+|---|---|---|
+| `out_dir` | `neuro/meeg/mne/epochs` | Denoised epochs |
+| `out_noise` | `neuro/meeg/mne/epochs` | The signal GEDAI removed (EEG channels only) |
+
+<details>
+<summary><b>⚙️ Parameters</b> (12)</summary>
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `mode` | enum | `broadband` | GEDAI variant (epochs). Options: `broadband`, `multiband`. |
+| `l_freq` | number |  | High-pass (Hz) before fitting. Empty/null = skip (a warning is issued if the epochs look unfiltered). |
+| `noise_multiplier` | string | `3.0` | SENSAI noise weighting -- higher keeps more brain signal. A number > 0, or a preset: standard / auto (3.0), aggressive (1.5), conservative (6.0). |
+| `sensai_method` | enum | `optimize` | SENSAI threshold search strategy. Options: `optimize`, `gridsearch`. |
+| `broadband_pass` | boolean | `true` | multiband / adaptive: run an initial broadband GEDAI pre-pass. |
+| `wavelet_low_cutoff` | string | `auto` | multiband / adaptive: wavelet bands below this (Hz) are zeroed. 'auto' uses the data high-pass. |
+| `add_reference_channel` | string |  | Name of a flat reference channel to add before fitting (preserves rank for non-average references). Kept in the output. |
+| `montage` | string |  | Name of an MNE built-in montage to attach before fitting (e.g. standard_1005, GSN-HydroCel-257). Needed when channel names are non-standard and no positions are stored. |
+| `montage_handling` | enum | `auto` | How GEDAI's reference covariance is built. Options: `auto`, `leadfield`, `forward`, `channel_positions`, `drop_unmatched`. |
+| `interpolate_bads` | boolean | `false` | Interpolate channels marked bad before fitting. |
+| `output` | enum | `recombine` | What to write as the denoised output. Options: `recombine`, `eeg_only`. |
+| `n_jobs` | number | `8` | Parallel jobs; match the allocated CPUs (currently 8). |
+
+</details>
+
+📚 **References used by this App:**
+- Ros T, Ferat V, Huang Y, Colangelo C, Kia SM, Wolfers T, Vulliemoz S, Michela A. Return of the GEDAI: Unsupervised EEG Denoising based on Leadfield Filtering. bioRxiv (2025). [doi:10.1101/2025.10.04.680449](https://doi.org/10.1101/2025.10.04.680449)
+- Hayashi S, Caron BA, Heinsfeld AS, et al. brainlife.io: a decentralized and open-source cloud platform to support neuroscience research. Nat Methods 21:809-813 (2024). [doi:10.1038/s41592-024-02237-2](https://doi.org/10.1038/s41592-024-02237-2)
+- Gramfort A, et al. MEG and EEG data analysis with MNE-Python. Front Neurosci 7:267 (2013). [doi:10.3389/fnins.2013.00267](https://doi.org/10.3389/fnins.2013.00267)
+
+<!-- brainlife-app:end -->
+
 > ⚠️ **Licence / patent notice.** This app wraps
 > [GEDAI](https://github.com/neurotuning/gedai), which is licensed under the
 > **PolyForm Noncommercial License 1.0.0** and whose core algorithm is
